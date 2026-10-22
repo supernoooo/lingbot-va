@@ -523,6 +523,19 @@ def run(args):
 
     if args.save_root is not None:
         config.save_root = args.save_root
+    if args.resume_from is not None:
+        config.resume_from = args.resume_from
+    if args.num_steps is not None:
+        config.num_steps = args.num_steps
+    if args.save_interval is not None:
+        config.save_interval = args.save_interval
+    if args.dataset_root is not None:
+        config.dataset_path = args.dataset_root
+        config.empty_emb_path = os.path.join(args.dataset_root, "empty_emb.pt")
+        norm_path = os.path.join(args.dataset_root, "meta", "r1_lite_action_norm.json")
+        if os.path.exists(norm_path):
+            with open(norm_path, "r") as f:
+                config.norm_stat = json.load(f)
 
     if rank == 0:
         logger.info(f"Using config: {args.config_name}")
@@ -546,6 +559,30 @@ def main():
         type=str,
         default=None,
         help="Root directory for saving checkpoints",
+    )
+    parser.add_argument(
+        "--resume-from",
+        type=str,
+        default=None,
+        help="Checkpoint directory whose transformer/ subdirectory should initialize the model",
+    )
+    parser.add_argument(
+        "--num-steps",
+        type=int,
+        default=None,
+        help="Override config.num_steps",
+    )
+    parser.add_argument(
+        "--save-interval",
+        type=int,
+        default=None,
+        help="Override config.save_interval",
+    )
+    parser.add_argument(
+        "--dataset-root",
+        type=str,
+        default=None,
+        help="Override config.dataset_path and matching empty_emb/norm_stat paths",
     )
 
     args = parser.parse_args()
