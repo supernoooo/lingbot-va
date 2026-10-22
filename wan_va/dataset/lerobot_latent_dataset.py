@@ -284,13 +284,32 @@ class LatentLeRobotDataset(LeRobotDataset):
             left_action = get_relative_pose(action[:, :7])
             right_action = get_relative_pose(action[:, 8:15])
             action = np.concatenate([left_action, action[:, 7:8], right_action, action[:, 15:16]], axis=1)
-        action = np.pad(action, pad_width=((frame_stride * 4, 0), (0, 0)), mode='constant', constant_values=0)
-
         latent_frame_num = (len(latent_frame_ids) - 1) // 4 + 1
         required_action_num = latent_frame_num * frame_stride * 4
 
-        action = action[:required_action_num]
-        action_mask = np.ones_like(action, dtype='bool')
+        if getattr(self.config, 'short_window_action_pad_after', False):
+            # R1 Lite 2-frame sanity path:
+            # keep the real short-window actions first, then pad the missing
+            # action slots after the window and mask those padded slots out.
+            # This avoids training on normalized padded zeros. Do not enable
+            # this for full-episode training unless the action alignment design
+            # is intentionally changed.
+            action_mask = np.ones_like(action, dtype='bool')
+            if action.shape[0] < required_action_num:
+                pad_num = required_action_num - action.shape[0]
+                action = np.pad(action, pad_width=((0, pad_num), (0, 0)), mode='constant', constant_values=0)
+                action_mask = np.pad(action_mask, pad_width=((0, pad_num), (0, 0)), mode='constant', constant_values=0)
+            action = action[:required_action_num]
+            action_mask = action_mask[:required_action_num]
+        else:
+            # Official/full-episode behavior:
+            # prepend one action chunk as history before aligning actions to
+            # latent frames. This is correct for the original longer episode
+            # windows and remains the default path.
+            action = np.pad(action, pad_width=((frame_stride * 4, 0), (0, 0)), mode='constant', constant_values=0)
+            action = action[:required_action_num]
+            action_mask = np.ones_like(action, dtype='bool')
+
         assert action.shape[0] == required_action_num
 
 
