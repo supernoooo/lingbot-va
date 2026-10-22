@@ -119,7 +119,10 @@ class Trainer:
 
         # Setup dataloaders
         logger.info("Setting up datasets...")
-        train_dataset = MultiLatentLeRobotDataset(config=config)
+        train_dataset = MultiLatentLeRobotDataset(
+            config=config,
+            num_init_worker=getattr(config, "num_init_worker", 128),
+        )
         train_sampler = DistributedSampler(
             train_dataset,
             num_replicas=config.world_size,

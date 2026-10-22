@@ -47,8 +47,11 @@ def construct_lerobot_multi_processor(config,
     )
     repo_list = recursive_find_file(config.dataset_path, 'info.json')
     repo_list = [v.split('/meta/info.json')[0] for v in repo_list]
-    with Pool(num_init_worker) as pool:
-        datasets_out_lst = pool.map(construct_func, repo_list)
+    if num_init_worker <= 1:
+        datasets_out_lst = [construct_func(repo) for repo in repo_list]
+    else:
+        with Pool(num_init_worker) as pool:
+            datasets_out_lst = pool.map(construct_func, repo_list)
                 
     return datasets_out_lst
 
