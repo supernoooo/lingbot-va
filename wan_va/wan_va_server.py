@@ -323,6 +323,11 @@ class VA_Server:
         return input_dict
 
     def _encode_obs(self, obs):
+        # VAE => GPU
+        if self.enable_offload:
+            self.vae = self.vae.to(self.device).to(self.dtype)
+            if self.streaming_vae_half is not None:
+                self.streaming_vae_half.vae = self.streaming_vae_half.vae.to(self.device).to(self.dtype)
         images = obs['obs']
         if not isinstance(images, list):
             images = [images]
@@ -372,6 +377,12 @@ class VA_Server:
         latents_std = torch.tensor(self.vae.config.latents_std).to(mu.device)
         mu_norm = self.normalize_latents(mu, latents_mean, 1.0 / latents_std)
         video_latent = torch.cat(mu_norm.split(1, dim=0), dim=-1)
+        # VAE -> CPU
+        if self.enable_offload:
+            self.vae = self.vae.to("cpu")
+            if self.streaming_vae_half is not None:
+                self.streaming_vae_half.vae = self.streaming_vae_half.vae.to("cpu")
+
         return video_latent.to(self.device)
 
     def _reset(self, prompt=None):
