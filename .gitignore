@@ -1,1 +1,11 @@
 *.pyc
+**/__pycache__/
+.vscode
+LingBot_VA.egg-info
+build
+
+ckpt
+dataset
+imagined_videos
+visualization
+train_out
