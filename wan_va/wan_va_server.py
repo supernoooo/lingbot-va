@@ -77,9 +77,13 @@ class VA_Server:
             torch_device='cpu' if self.enable_offload else self.device,
         )
 
+        transformer_path = getattr(
+            job_config,
+            "transformer_pretrained_model_name_or_path",
+            os.path.join(job_config.wan22_pretrained_model_name_or_path, "transformer"),
+        )
         self.transformer = load_transformer(
-            os.path.join(job_config.wan22_pretrained_model_name_or_path,
-                         'transformer'),
+            transformer_path,
             torch_dtype=self.dtype,
             torch_device=self.device,
             attn_mode="torch"
@@ -691,6 +695,16 @@ def run(args):
     port = config.port if args.port is None else args.port
     if args.save_root is not None:
         config.save_root = args.save_root
+    if args.transformer_path is not None:
+        config.transformer_pretrained_model_name_or_path = args.transformer_path
+    if args.video_steps is not None:
+        config.num_inference_steps = args.video_steps
+    if args.action_steps is not None:
+        config.action_num_inference_steps = args.action_steps
+    if args.video_guidance_scale is not None:
+        config.guidance_scale = args.video_guidance_scale
+    if args.action_guidance_scale is not None:
+        config.action_guidance_scale = args.action_guidance_scale
     rank = int(os.getenv("RANK", 0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))
     world_size = int(os.environ.get("WORLD_SIZE", 1))
@@ -731,6 +745,36 @@ def main():
         type=str,
         default=None,
         help='save root'
+    )
+    parser.add_argument(
+        "--transformer-path",
+        type=str,
+        default=None,
+        help="optional trained transformer checkpoint path",
+    )
+    parser.add_argument(
+        "--video-steps",
+        type=int,
+        default=None,
+        help="override video denoising steps",
+    )
+    parser.add_argument(
+        "--action-steps",
+        type=int,
+        default=None,
+        help="override action denoising steps",
+    )
+    parser.add_argument(
+        "--video-guidance-scale",
+        type=float,
+        default=None,
+        help="override video classifier-free guidance scale",
+    )
+    parser.add_argument(
+        "--action-guidance-scale",
+        type=float,
+        default=None,
+        help="override action classifier-free guidance scale",
     )
     args = parser.parse_args()
     run(args)
