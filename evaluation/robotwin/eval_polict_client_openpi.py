@@ -196,10 +196,11 @@ def save_comparison_video(real_obs_list, imagined_video, action_history, save_pa
         return
 
     n_real = len(real_obs_list)
-    if imagined_video is not None:
+    if imagined_video is not None and len(imagined_video) > 0:
         imagined_video = np.concatenate(imagined_video, 0)
         n_imagined = len(imagined_video) 
     else:
+        imagined_video = None
         n_imagined = 0
     n_frames = n_real # Based on real observation frames
     
