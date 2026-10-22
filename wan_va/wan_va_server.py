@@ -1,6 +1,7 @@
 # Copyright 2024-2025 The Robbyant Team Authors. All rights reserved.
 import argparse
 import os
+import imageio
 import sys
 import time
 from functools import partial
@@ -44,6 +45,7 @@ class VA_Server:
         self.cache_name = 'pos'
         self.job_config = job_config
         self.save_root = job_config.save_root
+        self.task_name = getattr(job_config, "task_name", "default")
         self.dtype = job_config.param_dtype
         self.device = torch.device(f"cuda:{job_config.local_rank}")
         self.enable_offload = getattr(job_config, 'enable_offload', True)  # offload vae & text_encoder to save vram
@@ -658,6 +660,7 @@ class VA_Server:
         if reset:
             logger.info(f"******************* Reset server ******************")
             self._reset(prompt=prompt)
+            self.current_run_timestamp = time.strftime('%Y%m%d_%H%M%S')
             return dict()
         elif compute_kv_cache:
             logger.info(
@@ -669,9 +672,46 @@ class VA_Server:
             if obs.get("stateless", False):
                 logger.info("Reset runtime cache for stateless chunk inference.")
                 self._reset_runtime_cache_for_stateless_chunk()
-            action, _ = self._infer(obs, frame_st_id=self.frame_st_id)
+            action, latents = self._infer(obs, frame_st_id=self.frame_st_id)
+            if obs.get("save_visualization", False):
+                try:
+                    self._save_imagined_video(latents)
+                except Exception as e:
+                    logger.error(f"[FAIL] failed to save imagined_video: {e}")
             return dict(action=action)
-    
+
+    def _save_imagined_video(self, latents):
+        logger.info("[INFO] Decoding imagined video for visualization...")
+
+        if self.enable_offload:
+            self.vae = self.vae.to(self.device).to(self.dtype)
+
+        if not hasattr(self, "video_processor"):
+            self.video_processor = VideoProcessor(vae_scale_factor=1)
+
+        decoded_video = self.decode_one_video(latents, "np")[0]
+
+        if decoded_video.dtype != np.uint8:
+            if decoded_video.max() <= 1.01:
+                decoded_video = (decoded_video * 255).astype(np.uint8)
+            else:
+                decoded_video = decoded_video.astype(np.uint8)
+
+        timestamp = getattr(self, "current_run_timestamp", None)
+        if timestamp is None:
+            timestamp = time.strftime("%Y%m%d_%H%M%S")
+            self.current_run_timestamp = timestamp
+
+        save_dir = os.path.join("imagined_videos", self.task_name, timestamp)
+        os.makedirs(save_dir, exist_ok=True)
+
+        vid_name = os.path.join(save_dir, f"step_{self.frame_st_id:04d}.mp4")
+        imageio.mimsave(vid_name, decoded_video, fps=10)
+        logger.info(f"[INFO] imagined_video saved at server: {vid_name}")
+
+        if self.enable_offload:
+            self.vae = self.vae.to("cpu")
+
     def decode_one_video(self, latents, output_type):
         latents = latents.to(self.vae.dtype)
         latents_mean = (
@@ -729,6 +769,8 @@ def run(args):
     port = config.port if args.port is None else args.port
     if args.save_root is not None:
         config.save_root = args.save_root
+    if args.task_name is not None:
+        config.task_name = args.task_name
     if args.transformer_path is not None:
         config.transformer_pretrained_model_name_or_path = args.transformer_path
     if args.video_steps is not None:
@@ -779,6 +821,12 @@ def main():
         type=str,
         default=None,
         help='save root'
+    )
+    parser.add_argument(
+        "--task_name",
+        type=str,
+        default=None,
+        help='task name used as the imagined_video save subdirectory'
     )
     parser.add_argument(
         "--transformer-path",

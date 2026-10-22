@@ -1,6 +1,8 @@
 START_PORT=${START_PORT:-29056}
 MASTER_PORT=${MASTER_PORT:-29061}
 
+task_name=${1:-"adjust_bottle"}
+
 save_root='visualization/'
 mkdir -p $save_root
 
@@ -10,6 +12,7 @@ python -m torch.distributed.run \
     wan_va/wan_va_server.py \
     --config-name robotwin \
     --port $START_PORT \
-    --save_root $save_root
+    --save_root $save_root \
+    --task_name $task_name
 
 
