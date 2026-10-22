@@ -165,7 +165,14 @@ class LatentLeRobotDataset(LeRobotDataset):
         for key, value in self.meta.episodes.items():
             episode_index = value["episode_index"]
             tasks = value["tasks"]
-            action_config = value["action_config"]
+            action_config = value.get("action_config")
+            if action_config is None:
+                action_config = [{
+                    "start_frame": 0,
+                    "end_frame": value["length"],
+                    "action_text": tasks[0] if len(tasks) > 0 else "",
+                    "skill": "",
+                }]
             for acfg in action_config:
                 cur_meta = {
                     "episode_index": episode_index,
