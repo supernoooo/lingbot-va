@@ -1,0 +1,4 @@
+[submodule "RoboTwin"]
+	path = RoboTwin
+	url = https://github.com/supernoooo/RoboTwin.git
+	branch = lingbot-va
