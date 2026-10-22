@@ -134,50 +134,17 @@ In summary:
    sudo apt install libvulkan1 mesa-vulkan-drivers vulkan-tools
    ```
 
-2. Clone the RoboTwin repository:
+2. Initialize the RoboTwin submodule (based on `2eeec322`, with `script/requirements.txt` and `script/_install.sh` already adapted):
    ```bash
-   git clone https://github.com/RoboTwin-Platform/RoboTwin.git && cd RoboTwin && git checkout 2eeec322
+   git submodule update --init RoboTwin && cd RoboTwin
    ```
 
-3. Modify `script/requirements.txt` with the following content:
-   ```txt
-   transforms3d==0.4.2
-   sapien==3.0.0b1
-   scipy==1.10.1
-   mplib==0.2.1
-   gymnasium==0.29.1
-   trimesh==4.4.3
-   open3d==0.18.0
-   imageio==2.34.2
-   pydantic
-   zarr
-   openai
-   huggingface_hub==0.36.2
-   h5py
-   # For Description Generation
-   azure==4.0.0
-   azure-ai-inference
-   pyglet<2
-   wandb
-   moviepy
-   imageio
-   termcolor
-   av
-   matplotlib
-   ffmpeg
-   ```
-
-4. Modify line 8 of `script/_install.sh`:
-   ```bash
-   pip install "git+https://github.com/facebookresearch/pytorch3d.git@stable" --no-build-isolation
-   ```
-
-5. Install dependencies:
+3. Install dependencies:
    ```bash
    bash script/_install.sh
    ```
 
-6. Download assets:
+4. Download assets:
    ```bash
    bash script/_download_assets.sh
    ```
