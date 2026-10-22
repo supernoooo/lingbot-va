@@ -455,6 +455,37 @@ class VA_Server:
         os.makedirs(self.exp_save_root, exist_ok=True)
         torch.cuda.empty_cache()
 
+    def _reset_runtime_cache_for_stateless_chunk(self):
+        """Clear streaming state before an independent rollout chunk.
+
+        This is intentionally narrower than _reset(): it keeps the current prompt
+        embeddings and action normalization, but removes VAE/transformer temporal
+        state so repeated single-observation chunks do not reuse stale caches.
+        The default streaming/KV-cache path is unchanged unless a request passes
+        stateless=True.
+        """
+        self.frame_st_id = 0
+        self.init_latent = None
+        self.transformer.clear_cache(self.cache_name)
+        self.streaming_vae.clear_cache()
+        if self.streaming_vae_half is not None:
+            self.streaming_vae_half.clear_cache()
+        torch.cuda.empty_cache()
+
+        patch_size = self.job_config.patch_size
+        latent_token_per_chunk = (self.job_config.frame_chunk_size *
+                                  self.latent_height * self.latent_width) // (
+                                      patch_size[0] * patch_size[1] *
+                                      patch_size[2])
+        action_token_per_chunk = self.job_config.frame_chunk_size * self.action_per_frame
+        self.transformer.create_empty_cache(self.cache_name,
+                                            self.job_config.attn_window,
+                                            latent_token_per_chunk,
+                                            action_token_per_chunk,
+                                            dtype=self.dtype,
+                                            device=self.device,
+                                            batch_size=2 if self.use_cfg else 1)
+
     def _infer(self, obs, frame_st_id=0):
         frame_chunk_size = self.job_config.frame_chunk_size
         if frame_st_id == 0:
@@ -635,6 +666,9 @@ class VA_Server:
             return dict()
         else:
             logger.info(f"################# Infer One Chunk #################")
+            if obs.get("stateless", False):
+                logger.info("Reset runtime cache for stateless chunk inference.")
+                self._reset_runtime_cache_for_stateless_chunk()
             action, _ = self._infer(obs, frame_st_id=self.frame_st_id)
             return dict(action=action)
     
