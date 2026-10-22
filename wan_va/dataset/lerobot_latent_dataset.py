@@ -151,9 +151,11 @@ class LatentLeRobotDataset(LeRobotDataset):
         self.used_video_keys = config.obs_cam_keys
         self.q01 = np.array(config.norm_stat['q01'], dtype='float')[None]
         self.q99 = np.array(config.norm_stat['q99'], dtype='float')[None]
+        self.action_keys = getattr(config, 'galaxea_action_keys', None)
+        action_columns = self.action_keys if self.action_keys else ['action']
         self._hf_torch_view = self.hf_dataset.with_format(
                 type='torch',
-                columns=['action'],
+                columns=action_columns,
                 output_all_columns=False
             )
         self.parse_meta()
@@ -199,6 +201,16 @@ class LatentLeRobotDataset(LeRobotDataset):
 
     def _get_range_hf_data(self, start_frame, end_frame):
         batch = self._hf_torch_view[start_frame:end_frame]
+        if 'action' not in batch and self.action_keys:
+            # R1 Lite Galaxea actions are stored as separate columns:
+            # arm joints are [T, 6], while grippers are [T]. Keep this adapter
+            # local to multi-column action datasets; single-column official
+            # LeRobot datasets still use the original "action" column path.
+            action_parts = [
+                batch[key].unsqueeze(-1) if batch[key].ndim == 1 else batch[key]
+                for key in self.action_keys
+            ]
+            batch['action'] = torch.cat(action_parts, dim=-1)
         return batch
 
     def _flatten_latent_dict(self, latent_dict):
